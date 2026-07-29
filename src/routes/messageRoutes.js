@@ -26,4 +26,8 @@ router.post('/send', (req, res, next) => {
   });
 }, messageController.send);
 
+router.get('/contacts', messageController.contacts);
+router.get('/history', messageController.historyAll);
+router.get('/history/:contact', messageController.historyByContact);
+
 module.exports = router;
