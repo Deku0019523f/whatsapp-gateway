@@ -14,7 +14,20 @@ function ensureDb() {
 
 function readDb() {
   ensureDb();
-  return JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
+  const raw = fs.readFileSync(DB_PATH, 'utf-8');
+  if (!raw || !raw.trim()) {
+    const empty = { users: [] };
+    writeDb(empty);
+    return empty;
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('users.json corrompu, réinitialisation :', err.message);
+    const empty = { users: [] };
+    writeDb(empty);
+    return empty;
+  }
 }
 
 function writeDb(data) {
