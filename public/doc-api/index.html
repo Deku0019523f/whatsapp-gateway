@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp Gateway — Documentation API</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-panel: #11161d;
+    --border: #232b36;
+    --text: #d7dde5;
+    --text-dim: #8892a0;
+    --accent: #2fbf71;
+    --accent-dim: #1d7a49;
+    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .layout { display: flex; min-height: 100vh; }
+  nav {
+    width: 240px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    padding: 28px 20px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  nav .brand {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+    margin-bottom: 4px;
+  }
+  nav .sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 28px;
+  }
+  nav a {
+    display: block;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 6px 0;
+    border-left: 2px solid transparent;
+    padding-left: 10px;
+    margin-left: -12px;
+    transition: color .15s, border-color .15s;
+  }
+  nav a:hover { color: var(--text); }
+  nav .group-label {
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: #4d5666;
+    margin: 20px 0 6px;
+  }
+  main {
+    flex: 1;
+    max-width: 860px;
+    padding: 48px 56px 120px;
+  }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  h2 {
+    font-size: 19px;
+    margin: 56px 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  h2 .verb {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-right: 10px;
+    vertical-align: middle;
+  }
+  .verb.post { background: rgba(47,191,113,.15); color: var(--accent); }
+  .verb.get { background: rgba(88,166,255,.15); color: #58a6ff; }
+  .verb.put { background: rgba(230,168,49,.15); color: #e6a831; }
+  .verb.delete { background: rgba(248,81,73,.15); color: #f85149; }
+  .lead { color: var(--text-dim); margin: 0 0 40px; max-width: 60ch; }
+  .card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 14px 0;
+  }
+  .card .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  pre {
+    background: #090c10;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.65;
+    margin: 10px 0 0;
+  }
+  code { font-family: var(--mono); }
+  .inline-code {
+    background: #090c10;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 12.5px;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--text-dim); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  td code { color: var(--accent); }
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    margin-left: 8px;
+  }
+  .note {
+    border-left: 3px solid var(--accent-dim);
+    padding: 10px 14px;
+    background: rgba(47,191,113,.06);
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .events li { margin-bottom: 6px; font-size: 13.5px; }
+  .events code { color: var(--accent); }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <div class="brand">whatsapp-gateway</div>
+    <div class="sub">My Atelier — API v1</div>
+
+    <div class="group-label">Démarrage</div>
+    <a href="#intro">Introduction</a>
+    <a href="#auth">Authentification</a>
+
+    <div class="group-label">Admin</div>
+    <a href="#admin-create">Créer un utilisateur</a>
+    <a href="#admin-list">Lister les utilisateurs</a>
+    <a href="#admin-regen">Régénérer une clé API</a>
+    <a href="#admin-webhook">Modifier le webhook</a>
+    <a href="#admin-delete">Supprimer un utilisateur</a>
+
+    <div class="group-label">Session WhatsApp</div>
+    <a href="#session-start">Démarrer une session</a>
+    <a href="#session-status">Statut de connexion</a>
+    <a href="#session-logout">Déconnexion</a>
+
+    <div class="group-label">Messages</div>
+    <a href="#message-send">Envoyer un message</a>
+
+    <div class="group-label">Temps réel</div>
+    <a href="#webhooks">Événements Webhook</a>
+    <a href="#socket">Socket.io</a>
+  </nav>
+
+  <main>
+    <h1 id="intro">WhatsApp Gateway API</h1>
+    <p class="lead">
+      Passerelle WhatsApp multi-utilisateurs basée sur Baileys. My Atelier appelle cette API
+      pour connecter des comptes WhatsApp (QR code ou pairing code) et envoyer des messages
+      (texte, lien, fichiers, images) pour chaque utilisateur.
+    </p>
+
+    <h2 id="auth">Authentification</h2>
+    <p>Deux niveaux de clés, à ne jamais exposer côté client :</p>
+    <table>
+      <tr><th>Clé</th><th>Header</th><th>Utilisation</th></tr>
+      <tr><td><code>ADMIN_KEY</code></td><td><code>x-admin-key</code></td><td>Créer/gérer les utilisateurs (backend My Atelier uniquement)</td></tr>
+      <tr><td><code>apiKey</code> (par utilisateur)</td><td><code>x-api-key</code></td><td>Démarrer une session, envoyer des messages pour cet utilisateur</td></tr>
+      <tr><td><code>webhookKey</code> (par utilisateur)</td><td><code>x-webhook-key</code></td><td>Envoyée par le gateway sur chaque appel webhook, à vérifier côté My Atelier</td></tr>
+    </table>
+
+    <h2 id="admin-create"><span class="verb post">POST</span>/admin/users</h2>
+    <p>Crée un utilisateur et génère sa clé API + sa clé webhook.</p>
+    <div class="card">
+      <div class="label">Body</div>
+      <pre>{
+  "webhookUrl": "https://myatelier.com/api/whatsapp/webhook"
+}</pre>
+    </div>
+    <div class="card">
+      <div class="label">Réponse</div>
+      <pre>{
+  "success": true,
+  "user": {
+    "userId": "5e2f...",
+    "apiKey": "key_9af3...",
+    "webhookUrl": "https://myatelier.com/api/whatsapp/webhook",
+    "webhookKey": "whk_71bd...",
+    "createdAt": "2026-07-29T10:00:00.000Z"
+  }
+}</pre>
+    </div>
+
+    <h2 id="admin-list"><span class="verb get">GET</span>/admin/users</h2>
+    <p>Liste tous les utilisateurs enregistrés sur le gateway.</p>
+
+    <h2 id="admin-regen"><span class="verb post">POST</span>/admin/users/:userId/regenerate-key</h2>
+    <p>Invalide l'ancienne clé API de l'utilisateur et en génère une nouvelle.</p>
+
+    <h2 id="admin-webhook"><span class="verb put">PUT</span>/admin/users/:userId/webhook</h2>
+    <div class="card">
+      <div class="label">Body</div>
+      <pre>{ "webhookUrl": "https://myatelier.com/nouvelle-url" }</pre>
+    </div>
+
+    <h2 id="admin-delete"><span class="verb delete">DELETE</span>/admin/users/:userId</h2>
+    <p>Supprime l'utilisateur et son enregistrement (ne ferme pas la session WhatsApp active).</p>
+
+    <h2 id="session-start"><span class="verb post">POST</span>/session/start <span class="tag">x-api-key</span></h2>
+    <p>Démarre une session WhatsApp pour l'utilisateur, en mode QR ou pairing code.</p>
+    <div class="card">
+      <div class="label">Body — mode QR</div>
+      <pre>{ "mode": "qr" }</pre>
+    </div>
+    <div class="card">
+      <div class="label">Body — mode Pairing</div>
+      <pre>{ "mode": "pairing", "phoneNumber": "22507xxxxxxx" }</pre>
+    </div>
+    <div class="note">
+      Le QR code (en base64) et le code de pairing sont livrés en temps réel via webhook
+      (<code class="inline-code">event: qr</code> / <code class="inline-code">event: pairing_code</code>)
+      et via Socket.io — voir plus bas.
+    </div>
+
+    <h2 id="session-status"><span class="verb get">GET</span>/session/status <span class="tag">x-api-key</span></h2>
+    <div class="card">
+      <div class="label">Réponse</div>
+      <pre>{ "success": true, "status": "connected" }</pre>
+    </div>
+    <p>Valeurs possibles : <code>disconnected</code>, <code>connecting</code>, <code>qr_pending</code>, <code>connected</code>.</p>
+
+    <h2 id="session-logout"><span class="verb post">POST</span>/session/logout <span class="tag">x-api-key</span></h2>
+    <p>Déconnecte le compte WhatsApp et supprime les identifiants de session sur le VPS.</p>
+
+    <h2 id="message-send"><span class="verb post">POST</span>/message/send <span class="tag">x-api-key</span></h2>
+    <p>Envoie un message. Utiliser <code>multipart/form-data</code> pour les fichiers/images.</p>
+    <div class="card">
+      <div class="label">Texte ou lien — JSON</div>
+      <pre>{
+  "to": "22507xxxxxxx",
+  "type": "text",
+  "text": "Bonjour, voici votre confirmation."
+}</pre>
+    </div>
+    <div class="card">
+      <div class="label">Image ou fichier — multipart/form-data</div>
+      <pre>to: 22507xxxxxxx
+type: image
+caption: Votre facture
+media: (fichier binaire)</pre>
+    </div>
+    <table>
+      <tr><th>Champ</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>to</code></td><td>string</td><td>Numéro international sans le +</td></tr>
+      <tr><td><code>type</code></td><td>string</td><td><code>text</code> · <code>link</code> · <code>image</code> · <code>file</code></td></tr>
+      <tr><td><code>text</code></td><td>string</td><td>Requis pour <code>text</code>/<code>link</code></td></tr>
+      <tr><td><code>media</code></td><td>fichier</td><td>Requis pour <code>image</code>/<code>file</code></td></tr>
+    </table>
+
+    <h2 id="webhooks">Événements Webhook</h2>
+    <p>
+      Chaque événement est envoyé en <code>POST</code> vers l'URL configurée, avec le header
+      <code class="inline-code">x-webhook-key</code> à vérifier côté My Atelier avant de traiter la requête.
+    </p>
+    <div class="card">
+      <div class="label">Format</div>
+      <pre>{
+  "event": "connected",
+  "userId": "5e2f...",
+  "data": { },
+  "timestamp": 1753776000000
+}</pre>
+    </div>
+    <ul class="events">
+      <li><code>qr</code> — nouveau QR code disponible</li>
+      <li><code>pairing_code</code> — code de pairing généré</li>
+      <li><code>connected</code> — session WhatsApp connectée</li>
+      <li><code>disconnected</code> — session fermée</li>
+      <li><code>message_received</code> — message entrant reçu sur le compte</li>
+    </ul>
+
+    <h2 id="socket">Socket.io (optionnel, temps réel côté front)</h2>
+    <p>Pour afficher le QR en direct dans l'interface My Atelier sans dépendre du webhook :</p>
+    <pre>const socket = io("http://VOTRE_IP_VPS:3000");
+socket.emit("join", userId);
+socket.on("qr", ({ qr }) => afficherQr(qr));
+socket.on("connected", () => afficherStatutConnecte());</pre>
+  </main>
+</div>
+</body>
+</html>
