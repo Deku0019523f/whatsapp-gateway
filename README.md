@@ -5,7 +5,7 @@ Passerelle WhatsApp multi-utilisateurs (type WPPConnect) basée sur Baileys, à 
 ## Installation sur le VPS
 
 ```bash
-git clone <ton-repo> whatsapp-gateway
+git clone https://github.com/Deku0019523f/whatsapp-gateway.git
 cd whatsapp-gateway
 npm install
 cp .env.example .env
