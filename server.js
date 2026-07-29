@@ -8,6 +8,7 @@ const { Server } = require('socket.io');
 const adminRoutes = require('./src/routes/adminRoutes');
 const sessionRoutes = require('./src/routes/sessionRoutes');
 const messageRoutes = require('./src/routes/messageRoutes');
+const { purgeOldMessages } = require('./src/services/messageStoreService');
 
 const app = express();
 const server = http.createServer(app);
@@ -42,3 +43,13 @@ server.listen(PORT, () => {
   console.log(`WhatsApp Gateway démarré sur le port ${PORT}`);
   console.log(`Documentation API : http://localhost:${PORT}/doc-api`);
 });
+
+// Purge des messages de plus de 7 jours : au démarrage, puis chaque jour
+function runMessagePurge() {
+  const stats = purgeOldMessages(7);
+  console.log(
+    `[purge] utilisateurs traités: ${stats.usersProcessed}, fichiers supprimés: ${stats.filesDeleted}, messages supprimés: ${stats.messagesDeleted}`
+  );
+}
+runMessagePurge();
+setInterval(runMessagePurge, 24 * 60 * 60 * 1000);
