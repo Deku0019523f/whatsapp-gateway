@@ -10,6 +10,7 @@ const {
 } = require('@whiskeysockets/baileys');
 
 const { sendWebhook } = require('../services/webhookService');
+const { getUserDir, saveIncomingMessage } = require('../services/messageStoreService');
 
 const AUTH_DIR = path.join(__dirname, '../../auth_sessions');
 
@@ -107,6 +108,7 @@ async function startSession(userId, io, { mode = 'qr', phoneNumber = null } = {}
       s.qr = null;
       s.pairingCode = null;
       reconnectAttempts.delete(userId);
+      getUserDir(userId); // crée data/messages/<userId>/ si besoin
 
       // Récupère nom, numéro et photo de profil du compte connecté
       const rawJid = sock.user?.id || '';
@@ -162,9 +164,12 @@ async function startSession(userId, io, { mode = 'qr', phoneNumber = null } = {}
     if (type !== 'notify') return;
     for (const msg of messages) {
       if (!msg.message || msg.key.fromMe) continue;
+      const contact = msg.key.remoteJid.split('@')[0];
+      const saved = saveIncomingMessage(userId, contact, msg);
       sendWebhook(userId, 'message_received', {
         from: msg.key.remoteJid,
         message: msg.message,
+        text: saved.text,
         timestamp: msg.messageTimestamp,
       });
     }
