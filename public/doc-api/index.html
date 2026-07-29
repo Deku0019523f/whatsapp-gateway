@@ -217,6 +217,9 @@
 
     <div class="group-label">Messages</div>
     <a href="#message-send">Envoyer un message</a>
+    <a href="#message-contacts">Lister les contacts</a>
+    <a href="#message-history">Historique complet</a>
+    <a href="#message-history-contact">Historique d'un contact</a>
 
     <div class="group-label">Temps réel</div>
     <a href="#webhooks">Événements Webhook</a>
@@ -331,7 +334,59 @@ media: (fichier binaire)</pre>
       <tr><td><code>media</code></td><td>fichier</td><td>Requis pour <code>image</code>/<code>file</code></td></tr>
     </table>
 
-    <h2 id="webhooks">Événements Webhook</h2>
+    <h2 id="message-contacts"><span class="verb get">GET</span>/message/contacts <span class="tag">x-api-key</span></h2>
+    <p>Liste les numéros de tous les clients qui ont déjà écrit à ce compte WhatsApp.</p>
+    <div class="card">
+      <div class="label">Réponse</div>
+      <pre>{
+  "success": true,
+  "contacts": ["2250700000001", "2250700000002"]
+}</pre>
+    </div>
+
+    <h2 id="message-history"><span class="verb get">GET</span>/message/history <span class="tag">x-api-key</span></h2>
+    <p>Renvoie toutes les conversations, regroupées par contact.</p>
+    <div class="card">
+      <div class="label">Réponse</div>
+      <pre>{
+  "success": true,
+  "conversations": {
+    "2250700000001": [
+      {
+        "id": "3EB0...",
+        "from": "2250700000001@s.whatsapp.net",
+        "text": "Bonjour, c'est disponible ?",
+        "message": { },
+        "timestamp": 1753776000
+      }
+    ]
+  }
+}</pre>
+    </div>
+
+    <h2 id="message-history-contact"><span class="verb get">GET</span>/message/history/:contact <span class="tag">x-api-key</span></h2>
+    <p>Renvoie uniquement les messages reçus d'un contact précis (numéro sans le +).</p>
+    <div class="card">
+      <div class="label">Exemple</div>
+      <pre>GET /message/history/2250700000001</pre>
+    </div>
+    <div class="card">
+      <div class="label">Réponse</div>
+      <pre>{
+  "success": true,
+  "contact": "2250700000001",
+  "messages": [ ]
+}</pre>
+    </div>
+    <div class="note">
+      Chaque compte connecté a son propre dossier sur le gateway (un fichier par client).
+      Les messages sont conservés <strong>7 jours</strong> : une purge automatique tourne chaque jour
+      et supprime les messages plus anciens (le fichier d'un contact est effacé s'il ne reste plus rien).
+      Pensez à synchroniser régulièrement via ces routes ou via le webhook
+      <code class="inline-code">message_received</code> si vous voulez conserver l'historique plus longtemps côté My Atelier.
+    </div>
+
+
     <p>
       Chaque événement est envoyé en <code>POST</code> vers l'URL configurée, avec le header
       <code class="inline-code">x-webhook-key</code> à vérifier côté My Atelier avant de traiter la requête.
@@ -350,7 +405,7 @@ media: (fichier binaire)</pre>
       <li><code>pairing_code</code> — code de pairing généré</li>
       <li><code>connected</code> — session WhatsApp connectée</li>
       <li><code>disconnected</code> — session fermée</li>
-      <li><code>message_received</code> — message entrant reçu sur le compte</li>
+      <li><code>message_received</code> — message entrant reçu sur le compte (inclut désormais un champ <code>text</code> extrait automatiquement)</li>
     </ul>
 
     <h2 id="socket">Socket.io (optionnel, temps réel côté front)</h2>
