@@ -1,5 +1,6 @@
 const fs = require('fs');
 const { sendMessage } = require('../services/messageService');
+const { listContacts, getMessages, getAllMessages } = require('../services/messageStoreService');
 
 // POST /message/send
 // body (texte/lien): { to, type: 'text'|'link', text }
@@ -46,4 +47,20 @@ async function send(req, res) {
   }
 }
 
-module.exports = { send };
+// GET /message/contacts -> liste des numéros ayant déjà écrit
+function contacts(req, res) {
+  res.json({ success: true, contacts: listContacts(req.user.userId) });
+}
+
+// GET /message/history/:contact -> tous les messages reçus d'un contact précis
+function historyByContact(req, res) {
+  const { contact } = req.params;
+  res.json({ success: true, contact, messages: getMessages(req.user.userId, contact) });
+}
+
+// GET /message/history -> toutes les conversations regroupées par contact
+function historyAll(req, res) {
+  res.json({ success: true, conversations: getAllMessages(req.user.userId) });
+}
+
+module.exports = { send, contacts, historyByContact, historyAll };
