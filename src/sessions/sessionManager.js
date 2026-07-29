@@ -27,10 +27,29 @@ function getSession(userId) {
 function getStatus(userId) {
   const s = sessions.get(userId);
   if (!s) return { status: 'disconnected' };
-  return { status: s.status, qr: s.qr || null };
+  return {
+    status: s.status,
+    qr: s.qr || null,
+    pairingCode: s.pairingCode || null,
+    account: s.account || null, // { name, number, photoUrl } une fois connecté
+  };
 }
 
+// Format international E.164 sans le "+" : ex. 2250700000000, 33612345678
+const INTL_PHONE_REGEX = /^[1-9]\d{6,14}$/;
+
+// Reconnexion avec backoff exponentiel (2s, 4s, 8s... plafonné à 60s), max 10 tentatives
+const MAX_RECONNECT_ATTEMPTS = 10;
+const reconnectAttempts = new Map(); // userId -> nombre de tentatives
+
 async function startSession(userId, io, { mode = 'qr', phoneNumber = null } = {}) {
+  if (mode === 'pairing' && phoneNumber && !INTL_PHONE_REGEX.test(phoneNumber)) {
+    throw Object.assign(
+      new Error('Numéro invalide : format international requis, sans le "+" (ex: 2250700000000)'),
+      { statusCode: 400 }
+    );
+  }
+
   if (!fs.existsSync(getSessionDir(userId))) {
     fs.mkdirSync(getSessionDir(userId), { recursive: true });
   }
@@ -86,8 +105,25 @@ async function startSession(userId, io, { mode = 'qr', phoneNumber = null } = {}
     if (connection === 'open') {
       s.status = 'connected';
       s.qr = null;
-      io.to(userId).emit('connected', { userId });
-      sendWebhook(userId, 'connected', { userId });
+      s.pairingCode = null;
+      reconnectAttempts.delete(userId);
+
+      // Récupère nom, numéro et photo de profil du compte connecté
+      const rawJid = sock.user?.id || '';
+      const number = rawJid.split(':')[0].split('@')[0] || null;
+      const name = sock.user?.name || sock.user?.notify || null;
+      let photoUrl = null;
+      try {
+        photoUrl = await sock.profilePictureUrl(sock.user.id, 'image');
+      } catch (e) {
+        photoUrl = null; // pas de photo de profil ou non accessible
+      }
+
+      const account = { name, number, photoUrl };
+      s.account = account;
+
+      io.to(userId).emit('connected', { userId, account });
+      sendWebhook(userId, 'connected', { userId, account });
     }
 
     if (connection === 'close') {
@@ -98,8 +134,23 @@ async function startSession(userId, io, { mode = 'qr', phoneNumber = null } = {}
       sendWebhook(userId, 'disconnected', { userId, shouldReconnect });
 
       if (shouldReconnect) {
-        startSession(userId, io, { mode, phoneNumber });
+        const attempts = (reconnectAttempts.get(userId) || 0) + 1;
+        if (attempts > MAX_RECONNECT_ATTEMPTS) {
+          reconnectAttempts.delete(userId);
+          sessions.delete(userId);
+          io.to(userId).emit('reconnect_failed', { userId, attempts: attempts - 1 });
+          sendWebhook(userId, 'reconnect_failed', { attempts: attempts - 1 });
+          return;
+        }
+        reconnectAttempts.set(userId, attempts);
+        const delay = Math.min(2000 * 2 ** (attempts - 1), 60000); // 2s,4s,8s...max 60s
+        setTimeout(() => {
+          startSession(userId, io, { mode, phoneNumber }).catch((err) => {
+            io.to(userId).emit('error', { userId, message: err.message });
+          });
+        }, delay);
       } else {
+        reconnectAttempts.delete(userId);
         sessions.delete(userId);
         fs.rmSync(getSessionDir(userId), { recursive: true, force: true });
       }
@@ -132,6 +183,7 @@ async function logoutSession(userId) {
     }
   }
   sessions.delete(userId);
+  reconnectAttempts.delete(userId);
   fs.rmSync(getSessionDir(userId), { recursive: true, force: true });
   return { status: 'logged_out' };
 }
