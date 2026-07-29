@@ -6,9 +6,13 @@ async function start(req, res) {
   if (mode === 'pairing' && !phoneNumber) {
     return res.status(400).json({ success: false, error: 'phoneNumber requis pour le mode pairing' });
   }
-  const io = req.app.get('io');
-  const result = await sessionManager.startSession(req.user.userId, io, { mode, phoneNumber });
-  res.json({ success: true, ...result });
+  try {
+    const io = req.app.get('io');
+    const result = await sessionManager.startSession(req.user.userId, io, { mode, phoneNumber });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, error: err.message });
+  }
 }
 
 // GET /session/status
