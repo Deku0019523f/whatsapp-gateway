@@ -151,7 +151,44 @@
     border-radius: 0 6px 6px 0;
   }
   .events li { margin-bottom: 6px; font-size: 13.5px; }
+  .events li:before { content: none; }
   .events code { color: var(--accent); }
+  .contact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 14px 0;
+  }
+  .contact-item {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .contact-item .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .contact-item .value {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .contact-item a { color: var(--accent); text-decoration: none; }
+  .contact-item a:hover { text-decoration: underline; }
+  footer {
+    max-width: 860px;
+    padding: 0 56px 48px;
+    color: var(--text-dim);
+    font-size: 12.5px;
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+    padding-top: 20px;
+  }
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 </style>
@@ -184,6 +221,9 @@
     <div class="group-label">Temps réel</div>
     <a href="#webhooks">Événements Webhook</a>
     <a href="#socket">Socket.io</a>
+
+    <div class="group-label">Contact</div>
+    <a href="#creator">Créateur</a>
   </nav>
 
   <main>
@@ -318,8 +358,34 @@ media: (fichier binaire)</pre>
     <pre>const socket = io("http://VOTRE_IP_VPS:3000");
 socket.emit("join", userId);
 socket.on("qr", ({ qr }) => afficherQr(qr));
-socket.on("connected", () => afficherStatutConnecte());</pre>
+    <h2 id="creator">Créateur</h2>
+    <p class="lead">Développeur du gateway et des projets My Atelier / Premium225 / BoostAPI.</p>
+    <div class="contact-grid">
+      <div class="contact-item">
+        <div class="label">Telegram</div>
+        <div class="value"><a href="https://t.me/darkdeku225" target="_blank" rel="noopener">@darkdeku225</a></div>
+      </div>
+      <div class="contact-item">
+        <div class="label">WhatsApp</div>
+        <div class="value"><a href="https://wa.me/2250718623773" target="_blank" rel="noopener">+225 07 18 62 37 73</a></div>
+      </div>
+      <div class="contact-item">
+        <div class="label">Email</div>
+        <div class="value"><a href="mailto:darkdeku225@outlook.com">darkdeku225@outlook.com</a></div>
+      </div>
+      <div class="contact-item">
+        <div class="label">Sites</div>
+        <div class="value">
+          <a href="https://myateliers.store" target="_blank" rel="noopener">myateliers.store</a><br>
+          <a href="https://premium225.shop" target="_blank" rel="noopener">premium225.shop</a><br>
+          <a href="https://boostapi.store" target="_blank" rel="noopener">boostapi.store</a>
+        </div>
+      </div>
+    </div>
   </main>
 </div>
+<footer>
+  &copy; 2026 whatsapp-gateway-atelier — développé par <a href="https://t.me/darkdeku225" style="color:var(--accent);text-decoration:none;">@darkdeku225</a>
+</footer>
 </body>
 </html>
