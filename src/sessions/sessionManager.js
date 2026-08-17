@@ -7,6 +7,11 @@ const {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   DisconnectReason,
+  isJidGroup,
+  isJidStatusBroadcast,
+  isLidUser,
+  jidDecode,
+  jidNormalizedUser,
 } = require('@whiskeysockets/baileys');
 
 const { sendWebhook } = require('../services/webhookService');
@@ -68,7 +73,6 @@ async function startSession(userId, io, { mode = 'qr', phoneNumber = null } = {}
     version,
     auth: state,
     logger: pino({ level: 'silent' }),
-    printQRInTerminal: false,
     browser: ['Ubuntu', 'Chrome', '22.04.4'],
   });
 
@@ -112,7 +116,7 @@ async function startSession(userId, io, { mode = 'qr', phoneNumber = null } = {}
 
       // Récupère nom, numéro et photo de profil du compte connecté
       const rawJid = sock.user?.id || '';
-      const number = rawJid.split(':')[0].split('@')[0] || null;
+      const number = jidDecode(rawJid)?.user || null;
       const name = sock.user?.name || sock.user?.notify || null;
       let photoUrl = null;
       try {
@@ -163,11 +167,25 @@ async function startSession(userId, io, { mode = 'qr', phoneNumber = null } = {}
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return;
     for (const msg of messages) {
-      if (!msg.message || msg.key.fromMe) continue;
-      const contact = msg.key.remoteJid.split('@')[0];
+      const remoteJid = msg.key.remoteJid;
+      if (!msg.message || msg.key.fromMe || !remoteJid) continue;
+      // Hors périmètre pour une conversation client 1-à-1 : groupes et statuts/stories
+      if (isJidGroup(remoteJid) || isJidStatusBroadcast(remoteJid)) continue;
+      // Pas un vrai message client : suppression, édition ou réaction (emoji) sur un message existant
+      if (msg.message.protocolMessage || msg.message.reactionMessage) continue;
+
+      // WhatsApp masque parfois le numéro réel derrière un identifiant @lid (confidentialité
+      // du numéro, déploiement en cours côté WhatsApp). Quand Baileys parvient à le résoudre,
+      // le vrai numéro est exposé dans msg.key.senderPn : on l'utilise en priorité pour que
+      // le contact stocké reste un numéro exploitable pour répondre via /message/send.
+      const resolvedJid = isLidUser(remoteJid) && msg.key.senderPn ? msg.key.senderPn : remoteJid;
+      const normalized = jidNormalizedUser(resolvedJid);
+      const decoded = jidDecode(normalized);
+      const contact = decoded ? decoded.user : normalized.split('@')[0];
+
       const saved = saveIncomingMessage(userId, contact, msg);
       sendWebhook(userId, 'message_received', {
-        from: msg.key.remoteJid,
+        from: normalized,
         message: msg.message,
         text: saved.text,
         timestamp: msg.messageTimestamp,
