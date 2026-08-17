@@ -1,0 +1,25 @@
+# Dépendances
+node_modules/
+
+# Variables d'environnement (ADMIN_KEY, etc.)
+.env
+
+# Sessions WhatsApp (credentials Baileys) — sensible, jamais à commiter
+auth_sessions/*
+!auth_sessions/vide
+
+# Base utilisateurs + clés API générées au runtime
+data/users.json
+data/messages/
+
+# Fichiers temporaires uploadés avant envoi WhatsApp
+uploads/*
+!uploads/vide
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
