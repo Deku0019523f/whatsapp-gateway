@@ -281,7 +281,7 @@
     </div>
 
     <h2 id="admin-delete"><span class="verb delete">DELETE</span>/admin/users/:userId</h2>
-    <p>Supprime l'utilisateur et son enregistrement (ne ferme pas la session WhatsApp active).</p>
+    <p>Supprime l'utilisateur, ferme sa session WhatsApp active si elle existe, et efface ses données (identifiants de session, historique des conversations).</p>
 
     <h2 id="session-start"><span class="verb post">POST</span>/session/start <span class="tag">x-api-key</span></h2>
     <p>Démarre une session WhatsApp pour l'utilisateur, en mode QR ou pairing code.</p>
@@ -380,10 +380,25 @@ media: (fichier binaire)</pre>
     </div>
     <div class="note">
       Chaque compte connecté a son propre dossier sur le gateway (un fichier par client).
-      Les messages sont conservés <strong>7 jours</strong> : une purge automatique tourne chaque jour
-      et supprime les messages plus anciens (le fichier d'un contact est effacé s'il ne reste plus rien).
-      Pensez à synchroniser régulièrement via ces routes ou via le webhook
-      <code class="inline-code">message_received</code> si vous voulez conserver l'historique plus longtemps côté My Atelier.
+      Chaque conversation garde une mémoire des <strong>1000 derniers messages</strong> (les plus
+      anciens sont écartés au-delà), et une purge automatique quotidienne supprime en plus les
+      messages de plus de <strong>7 jours</strong> (le fichier d'un contact est effacé s'il ne reste
+      plus rien). Pensez à synchroniser régulièrement via ces routes ou via le webhook
+      <code class="inline-code">message_received</code> si vous voulez conserver l'historique plus
+      longtemps côté My Atelier. Les messages de groupe, statuts/stories, réactions et
+      suppressions/éditions ne sont pas enregistrés — seules les conversations directes avec un
+      client le sont.
+    </div>
+    <div class="note">
+      <strong>Important pour répondre :</strong> pour envoyer une réponse, utilisez de préférence le
+      champ <code class="inline-code">from</code> reçu via le webhook <code class="inline-code">message_received</code>
+      comme valeur de <code class="inline-code">to</code> dans <code class="inline-code">POST /message/send</code>,
+      plutôt que de reconstruire l'adresse à partir du numéro nu renvoyé par
+      <code class="inline-code">contact</code>. Dans la grande majorité des cas les deux sont
+      équivalents, mais WhatsApp masque parfois le numéro d'un contact derrière un identifiant
+      opaque (<code class="inline-code">@lid</code>) que le gateway ne peut pas toujours résoudre en
+      numéro réel ; le champ <code class="inline-code">from</code> reste alors la seule valeur fiable
+      pour répondre au bon contact.
     </div>
 
     <h2 id="webhooks">Événements Webhook</h2>
