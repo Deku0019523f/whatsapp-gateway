@@ -1,6 +1,8 @@
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
 const { addUser, getUsers, getUserById, updateUser, deleteUser } = require('../utils/store');
+const sessionManager = require('../sessions/sessionManager');
+const { deleteUserMessages } = require('../services/messageStoreService');
 
 function genKey(prefix) {
   return `${prefix}_${crypto.randomBytes(24).toString('hex')}`;
@@ -43,9 +45,17 @@ function updateWebhook(req, res) {
 }
 
 // DELETE /admin/users/:userId
-function removeUser(req, res) {
-  deleteUser(req.params.userId);
-  res.json({ success: true });
+async function removeUser(req, res) {
+  const { userId } = req.params;
+  try {
+    // Best-effort : pas grave si aucune session n'était active pour cet utilisateur
+    await sessionManager.logoutSession(userId).catch(() => {});
+    deleteUserMessages(userId);
+    deleteUser(userId);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 }
 
 module.exports = { createUser, listUsers, regenerateApiKey, updateWebhook, removeUser };
