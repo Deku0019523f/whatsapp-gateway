@@ -3,6 +3,10 @@ const path = require('path');
 
 const MESSAGES_DIR = path.join(__dirname, '../../data/messages');
 
+// Mémoire max conservée par conversation (par contact) : les plus anciens sont
+// écartés dès qu'une nouvelle réception dépasse ce nombre.
+const MAX_MESSAGES_PER_CONTACT = 1000;
+
 // Crée (si besoin) et renvoie le dossier de l'utilisateur connecté
 function getUserDir(userId) {
   const dir = path.join(MESSAGES_DIR, userId);
@@ -45,9 +49,11 @@ function extractText(message) {
   return null;
 }
 
-// Ajoute un message reçu au fichier du contact correspondant
+// Ajoute un message reçu au fichier du contact correspondant.
+// La conversation est plafonnée à MAX_MESSAGES_PER_CONTACT : au-delà, les messages
+// les plus anciens sont écartés (fenêtre glissante des derniers messages).
 function saveIncomingMessage(userId, contact, msg) {
-  const messages = readContactMessages(userId, contact);
+  let messages = readContactMessages(userId, contact);
   const entry = {
     id: msg.key.id,
     from: msg.key.remoteJid,
@@ -56,6 +62,9 @@ function saveIncomingMessage(userId, contact, msg) {
     timestamp: msg.messageTimestamp,
   };
   messages.push(entry);
+  if (messages.length > MAX_MESSAGES_PER_CONTACT) {
+    messages = messages.slice(messages.length - MAX_MESSAGES_PER_CONTACT);
+  }
   writeContactMessages(userId, contact, messages);
   return entry;
 }
@@ -127,6 +136,11 @@ function purgeOldMessages(maxAgeDays = 7) {
   return stats;
 }
 
+// Supprime tout l'historique de messages d'un utilisateur (dossier data/messages/<userId>)
+function deleteUserMessages(userId) {
+  fs.rmSync(path.join(MESSAGES_DIR, userId), { recursive: true, force: true });
+}
+
 module.exports = {
   getUserDir,
   saveIncomingMessage,
@@ -134,4 +148,6 @@ module.exports = {
   getMessages,
   getAllMessages,
   purgeOldMessages,
+  deleteUserMessages,
+  MAX_MESSAGES_PER_CONTACT,
 };
