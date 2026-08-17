@@ -386,7 +386,7 @@ media: (fichier binaire)</pre>
       <code class="inline-code">message_received</code> si vous voulez conserver l'historique plus longtemps côté My Atelier.
     </div>
 
-
+    <h2 id="webhooks">Événements Webhook</h2>
     <p>
       Chaque événement est envoyé en <code>POST</code> vers l'URL configurée, avec le header
       <code class="inline-code">x-webhook-key</code> à vérifier côté My Atelier avant de traiter la requête.
@@ -412,7 +412,8 @@ media: (fichier binaire)</pre>
     <p>Pour afficher le QR en direct dans l'interface My Atelier sans dépendre du webhook :</p>
     <pre>const socket = io("http://VOTRE_IP_VPS:3000");
 socket.emit("join", userId);
-socket.on("qr", ({ qr }) => afficherQr(qr));
+socket.on("qr", ({ qr }) => afficherQr(qr));</pre>
+
     <h2 id="creator">Créateur</h2>
     <p class="lead">Développeur du gateway et des projets My Atelier / Premium225 / BoostAPI.</p>
     <div class="contact-grid">
