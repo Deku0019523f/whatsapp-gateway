@@ -52,7 +52,7 @@ echo "=== Configuration du domaine — whatsapp-gateway ==="
 echo ""
 
 # ---------- 1. Domaine / sous-domaine ----------
-read -rp "Nom de domaine ou sous-domaine à rattacher (ex: premium225.shop) : " DOMAIN
+read -rp "Nom de domaine ou sous-domaine à rattacher (ex: api.premium225.shop) : " DOMAIN
 if [[ -z "$DOMAIN" ]]; then
   error "Le domaine ne peut pas être vide."
   exit 1
