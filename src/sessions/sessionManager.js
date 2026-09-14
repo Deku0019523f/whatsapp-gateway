@@ -174,16 +174,26 @@ async function startSession(userId, io, { mode = 'qr', phoneNumber = null } = {}
       // Pas un vrai message client : suppression, édition ou réaction (emoji) sur un message existant
       if (msg.message.protocolMessage || msg.message.reactionMessage) continue;
 
-      // WhatsApp masque parfois le numéro réel derrière un identifiant @lid (confidentialité
-      // du numéro, déploiement en cours côté WhatsApp). Quand Baileys parvient à le résoudre,
-      // le vrai numéro est exposé dans msg.key.senderPn : on l'utilise en priorité pour que
-      // le contact stocké reste un numéro exploitable pour répondre via /message/send.
-      const resolvedJid = isLidUser(remoteJid) && msg.key.senderPn ? msg.key.senderPn : remoteJid;
+      // WhatsApp adresse un même contact tantôt par son numéro (@s.whatsapp.net),
+      // tantôt par son identifiant masqué (@lid). Baileys expose la correspondance
+      // croisée sur la clé du message (senderLid / senderPn) quand il la connaît.
+      // On normalise systématiquement vers le @lid dès qu'on en a un : c'est
+      // l'adresse qui reste effectivement joignable une fois que WhatsApp a basculé
+      // ce contact dessus — sans ça, un même contact finit avec deux fichiers et les
+      // envois vers l'ancien numéro restent bloqués en "En attente".
+      let resolvedJid;
+      if (isLidUser(remoteJid)) {
+        resolvedJid = remoteJid;
+      } else if (msg.key.senderLid) {
+        resolvedJid = msg.key.senderLid;
+      } else {
+        resolvedJid = remoteJid;
+      }
       const normalized = jidNormalizedUser(resolvedJid);
       const decoded = jidDecode(normalized);
       const contact = decoded ? decoded.user : normalized.split('@')[0];
 
-      const saved = saveIncomingMessage(userId, contact, msg);
+      const saved = saveIncomingMessage(userId, contact, msg, normalized);
       sendWebhook(userId, 'message_received', {
         from: normalized,
         message: msg.message,

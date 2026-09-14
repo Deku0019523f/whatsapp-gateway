@@ -1,9 +1,19 @@
 const fs = require('fs');
 const { getSession } = require('../sessions/sessionManager');
+const { getLastCanonicalJid } = require('./messageStoreService');
 
-function toJid(number) {
+// Si "number" contient déjà un "@", on l'utilise tel quel (JID complet fourni
+// explicitement). Sinon, on cherche d'abord dans l'historique la dernière adresse
+// réellement utilisée pour ce contact (@s.whatsapp.net ou @lid) : WhatsApp bascule
+// certains contacts sur @lid, et leur envoyer un message au format @s.whatsapp.net
+// par défaut reste bloqué en "En attente" indéfiniment. On ne retombe sur le format
+// numéro classique que si le contact est totalement inconnu (premier envoi à froid).
+function toJid(userId, number) {
   if (number.includes('@')) return number;
-  return `${number.replace(/[^0-9]/g, '')}@s.whatsapp.net`;
+  const digits = number.replace(/[^0-9]/g, '');
+  const known = getLastCanonicalJid(userId, digits);
+  if (known) return known;
+  return `${digits}@s.whatsapp.net`;
 }
 
 async function sendMessage(userId, { to, type, text, filePath, fileName, mimeType, caption }) {
@@ -12,7 +22,7 @@ async function sendMessage(userId, { to, type, text, filePath, fileName, mimeTyp
     throw new Error('Session WhatsApp non connectée pour cet utilisateur');
   }
   const sock = session.sock;
-  const jid = toJid(to);
+  const jid = toJid(userId, to);
 
   switch (type) {
     case 'text':

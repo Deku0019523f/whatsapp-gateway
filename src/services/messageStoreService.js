@@ -52,11 +52,14 @@ function extractText(message) {
 // Ajoute un message reçu au fichier du contact correspondant.
 // La conversation est plafonnée à MAX_MESSAGES_PER_CONTACT : au-delà, les messages
 // les plus anciens sont écartés (fenêtre glissante des derniers messages).
-function saveIncomingMessage(userId, contact, msg) {
+// canonicalJid : adresse complète résolue par sessionManager (avec @s.whatsapp.net
+// ou @lid) — mémorisée pour que l'envoi sache quelle adresse utiliser plus tard.
+function saveIncomingMessage(userId, contact, msg, canonicalJid) {
   let messages = readContactMessages(userId, contact);
   const entry = {
     id: msg.key.id,
     from: msg.key.remoteJid,
+    canonicalJid: canonicalJid || msg.key.remoteJid,
     text: extractText(msg.message),
     message: msg.message,
     timestamp: msg.messageTimestamp,
@@ -67,6 +70,18 @@ function saveIncomingMessage(userId, contact, msg) {
   }
   writeContactMessages(userId, contact, messages);
   return entry;
+}
+
+// Adresse complète (@s.whatsapp.net ou @lid) la plus récente connue pour ce contact,
+// d'après son historique. Permet à messageService.toJid de renvoyer un message au
+// bon format sans que l'appelant (site/dashboard) ait besoin de connaître le type
+// d'adresse actuellement valide pour ce contact.
+function getLastCanonicalJid(userId, contact) {
+  const messages = readContactMessages(userId, contact);
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].canonicalJid) return messages[i].canonicalJid;
+  }
+  return null;
 }
 
 function listContacts(userId) {
@@ -144,6 +159,7 @@ function deleteUserMessages(userId) {
 module.exports = {
   getUserDir,
   saveIncomingMessage,
+  getLastCanonicalJid,
   listContacts,
   getMessages,
   getAllMessages,
