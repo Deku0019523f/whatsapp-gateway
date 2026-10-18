@@ -1,4 +1,4 @@
-# WhatsApp Gateway — My Atelier
+# WhatsApp Gateway
 
 Passerelle WhatsApp multi-utilisateurs (type WPPConnect) basée sur Baileys, à héberger sur ton VPS.
 
