@@ -1,71 +1,75 @@
-const fs = require('fs');
-const path = require('path');
+const { getDb } = require('./db');
 
-const DB_PATH = path.join(__dirname, '../../data/users.json');
+// Stockage des utilisateurs dans SQLite (table "users").
+// L'API publique est identique à l'ancienne version JSON : getUsers, getUserById,
+// getUserByApiKey, addUser, updateUser, deleteUser.
 
-function ensureDb() {
-  if (!fs.existsSync(path.dirname(DB_PATH))) {
-    fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-  }
-  if (!fs.existsSync(DB_PATH)) {
-    fs.writeFileSync(DB_PATH, JSON.stringify({ users: [] }, null, 2));
-  }
-}
-
-function readDb() {
-  ensureDb();
-  const raw = fs.readFileSync(DB_PATH, 'utf-8');
-  if (!raw || !raw.trim()) {
-    const empty = { users: [] };
-    writeDb(empty);
-    return empty;
-  }
-  try {
-    return JSON.parse(raw);
-  } catch (err) {
-    console.error('users.json corrompu, réinitialisation :', err.message);
-    const empty = { users: [] };
-    writeDb(empty);
-    return empty;
-  }
-}
-
-function writeDb(data) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+function rowToUser(row) {
+  if (!row) return undefined;
+  return {
+    userId: row.user_id,
+    apiKey: row.api_key,
+    webhookUrl: row.webhook_url,
+    webhookKey: row.webhook_key,
+    createdAt: row.created_at,
+  };
 }
 
 function getUsers() {
-  return readDb().users;
+  return getDb().prepare('SELECT * FROM users ORDER BY created_at').all().map(rowToUser);
 }
 
 function getUserById(userId) {
-  return readDb().users.find((u) => u.userId === userId);
+  return rowToUser(getDb().prepare('SELECT * FROM users WHERE user_id = ?').get(userId));
 }
 
 function getUserByApiKey(apiKey) {
-  return readDb().users.find((u) => u.apiKey === apiKey);
+  if (!apiKey || typeof apiKey !== 'string') return undefined;
+  return rowToUser(getDb().prepare('SELECT * FROM users WHERE api_key = ?').get(apiKey));
 }
 
 function addUser(user) {
-  const db = readDb();
-  db.users.push(user);
-  writeDb(db);
+  getDb()
+    .prepare(
+      `INSERT INTO users (user_id, api_key, webhook_url, webhook_key, created_at)
+       VALUES (@userId, @apiKey, @webhookUrl, @webhookKey, @createdAt)`
+    )
+    .run({
+      userId: user.userId,
+      apiKey: user.apiKey,
+      webhookUrl: user.webhookUrl || null,
+      webhookKey: user.webhookKey,
+      createdAt: user.createdAt || new Date().toISOString(),
+    });
   return user;
 }
 
+const UPDATABLE = { apiKey: 'api_key', webhookUrl: 'webhook_url', webhookKey: 'webhook_key' };
+
 function updateUser(userId, updates) {
-  const db = readDb();
-  const idx = db.users.findIndex((u) => u.userId === userId);
-  if (idx === -1) return null;
-  db.users[idx] = { ...db.users[idx], ...updates };
-  writeDb(db);
-  return db.users[idx];
+  const current = getUserById(userId);
+  if (!current) return null;
+
+  const sets = [];
+  const params = { userId };
+  for (const [field, column] of Object.entries(UPDATABLE)) {
+    if (Object.prototype.hasOwnProperty.call(updates, field)) {
+      sets.push(`${column} = @${field}`);
+      params[field] = updates[field] === undefined ? null : updates[field];
+    }
+  }
+  if (sets.length) {
+    getDb().prepare(`UPDATE users SET ${sets.join(', ')} WHERE user_id = @userId`).run(params);
+  }
+  return getUserById(userId);
 }
 
 function deleteUser(userId) {
-  const db = readDb();
-  db.users = db.users.filter((u) => u.userId !== userId);
-  writeDb(db);
+  const db = getDb();
+  db.transaction(() => {
+    db.prepare('DELETE FROM users WHERE user_id = ?').run(userId);
+    db.prepare("DELETE FROM webhook_queue WHERE user_id = ? AND status = 'pending'").run(userId);
+  })();
 }
 
 module.exports = {
