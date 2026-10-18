@@ -12,10 +12,12 @@ const {
   isLidUser,
   jidDecode,
   jidNormalizedUser,
+  downloadMediaMessage,
 } = require('@whiskeysockets/baileys');
 
 const { sendWebhook } = require('../services/webhookService');
-const { getUserDir, saveIncomingMessage } = require('../services/messageStoreService');
+const { saveIncomingMessage, setTranscription } = require('../services/messageStoreService');
+const { getAudioMessage, shouldTranscribe, transcribeBuffer } = require('../services/transcriptionService');
 
 const AUTH_DIR = path.join(__dirname, '../../auth_sessions');
 
@@ -112,7 +114,6 @@ async function startSession(userId, io, { mode = 'qr', phoneNumber = null } = {}
       s.qr = null;
       s.pairingCode = null;
       reconnectAttempts.delete(userId);
-      getUserDir(userId); // crée data/messages/<userId>/ si besoin
 
       // Récupère nom, numéro et photo de profil du compte connecté
       const rawJid = sock.user?.id || '';
@@ -194,11 +195,36 @@ async function startSession(userId, io, { mode = 'qr', phoneNumber = null } = {}
       const contact = decoded ? decoded.user : normalized.split('@')[0];
 
       const saved = saveIncomingMessage(userId, contact, msg, normalized);
+
+      // Message vocal : on le transcrit avant d'alerter le site, pour qu'il reçoive
+      // le texte directement dans "text". En cas d'échec ou de lenteur on envoie quand
+      // même le message (sans transcription) : un vocal ne doit jamais être perdu.
+      let transcription = null;
+      const audio = getAudioMessage(msg.message);
+      if (audio && shouldTranscribe(audio)) {
+        try {
+          const buffer = await downloadMediaMessage(
+            msg,
+            'buffer',
+            {},
+            { logger: pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage }
+          );
+          transcription = (await transcribeBuffer(buffer, { mimetype: audio.mimetype })) || null;
+          if (transcription) {
+            setTranscription(userId, contact, saved.id, transcription);
+            saved.text = transcription;
+          }
+        } catch (err) {
+          console.error(`[transcription] échec pour ${userId} (message ${saved.id}) :`, err.message);
+        }
+      }
+
       sendWebhook(userId, 'message_received', {
         from: normalized,
         message: msg.message,
         text: saved.text,
         timestamp: msg.messageTimestamp,
+        ...(audio ? { isVoice: Boolean(audio.ptt), transcription } : {}),
       });
     }
   });
