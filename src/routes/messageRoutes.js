@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const router = express.Router();
 const apiKeyAuth = require('../middlewares/apiKeyAuth');
+const { createAuthFailureLimiter, sendLimiter } = require('../middlewares/rateLimit');
 const messageController = require('../controllers/messageController');
 
 const ALLOWED_MIME_PREFIXES = ['image/', 'application/pdf', 'application/msword',
@@ -18,8 +19,8 @@ const upload = multer({
   },
 });
 
-router.use(apiKeyAuth);
-router.post('/send', (req, res, next) => {
+router.use(createAuthFailureLimiter(), apiKeyAuth);
+router.post('/send', sendLimiter, (req, res, next) => {
   upload.single('media')(req, res, (err) => {
     if (err) return res.status(400).json({ success: false, error: err.message });
     next();

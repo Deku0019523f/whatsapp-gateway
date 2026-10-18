@@ -17,7 +17,10 @@
     "pino": "^9.2.0",
     "dotenv": "^16.4.5",
     "cors": "^2.8.5",
-    "axios": "^1.7.2"
+    "axios": "^1.7.2",
+    "better-sqlite3": "^12.11.1",
+    "helmet": "^8.3.0",
+    "express-rate-limit": "^8.7.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"

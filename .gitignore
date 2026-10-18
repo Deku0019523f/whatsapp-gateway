@@ -8,9 +8,16 @@ node_modules/
 auth_sessions/*
 !auth_sessions/vide
 
-# Base utilisateurs + clés API générées au runtime
+# Base SQLite (utilisateurs, clés API, messages, file de webhooks) générée au runtime
+data/gateway.db
+data/gateway.db-wal
+data/gateway.db-shm
+
+# Anciens fichiers JSON, renommés après leur import automatique dans SQLite
 data/users.json
 data/messages/
+data/users.json.migrated
+data/messages.migrated/
 
 # Fichiers temporaires uploadés avant envoi WhatsApp
 uploads/*
