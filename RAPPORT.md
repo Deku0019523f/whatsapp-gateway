@@ -38,18 +38,19 @@ Voir `plan.md` pour le détail. Résumé :
 ## Fonctionnalités restantes
 - Tests automatisés (aucun pour l'instant)
 - Ajouter `"engines": { "node": ">=20.0.0" }` dans `package.json` (le README et le plan la mentionnent, mais elle n'y est pas ; voir `PACKAGE_JSON_PATCH.md`)
+- Régénérer `package-lock.json` (voir État actuel)
 - Support des groupes et statuts (volontairement ignorés aujourd'hui)
 - Base partagée (Postgres) si passage à plusieurs serveurs
 
 ## Modifications importantes effectuées
-- 2026-10-18 : mise à jour majeure poussée depuis `whatsapp-gateway-modifs.zip` : SQLite, file de webhooks fiable + signature HMAC, rate limiting, helmet, Socket.io authentifié, transcription vocale, doc API et README à jour
+- 2026-10-18 : mise à jour majeure poussée depuis `whatsapp-gateway-modifs.zip` : SQLite, file de webhooks fiable + signature HMAC, rate limiting, helmet, Socket.io authentifié, transcription vocale, doc API et README à jour. Tous les fichiers du zip sont sur `main`, sauf `package-lock.json`
 - Avant : correction de la duplication de contacts `@lid` / `@s.whatsapp.net`
 
 ## Problèmes rencontrés et solutions
 - Erreur `MODULE_NOT_FOUND` / `requires Node.js 20+` : Node trop ancien sur le VPS. Solution : `bash fix-node.sh` et `.npmrc` avec `engine-strict=true`
 - Compilation de `better-sqlite3` qui échoue : `sudo apt install -y build-essential python3`
 - Contact en double (numéro vs `@lid`), envois bloqués « En attente » : normalisation vers le `@lid` dès qu'il est connu, et réponse via le champ `from` du webhook
-- Push git depuis l'environnement Claude bloqué (dépôt non autorisé dans la session) : contourné via l'API GitHub
+- Push git depuis l'environnement Claude bloqué (dépôt non autorisé dans la session) : contourné via l'API GitHub. Le `package-lock.json` (~100 Ko) est trop gros pour être poussé ainsi sans risque d'erreur de copie
 
 ## Dépendances installées
 `@whiskeysockets/baileys`, `express`, `socket.io`, `multer`, `qrcode`, `uuid`, `pino`, `dotenv`, `cors`, `axios`, `better-sqlite3`, `helmet`, `express-rate-limit` ; dev : `nodemon`.
@@ -70,10 +71,11 @@ sqlite3 data/gateway.db ".backup sauvegarde.db"   # sauvegarde à chaud
 `PORT`, `ADMIN_KEY`, `PUBLIC_URL`, `ALLOWED_ORIGINS`, `TRUST_PROXY`, `RATE_LIMIT_PER_MIN`, `AUTH_FAILURES_PER_15MIN`, `SEND_LIMIT_PER_MIN`, `WEBHOOK_MAX_ATTEMPTS`, `WEBHOOK_LEGACY_KEY_HEADER`, `WEBHOOK_TIMEOUT_MS`, `WEBHOOK_BACKOFF_SECONDS`, `GROQ_API_KEY`, `TRANSCRIPTION_LANGUAGE`, `TRANSCRIPTION_MODEL`, `TRANSCRIPTION_MAX_SECONDS`, `TRANSCRIPTION_ENABLED`, `DB_PATH`.
 
 ## État actuel du projet
-Code à jour sur la branche `main` de `Deku0019523f/whatsapp-gateway`. Non testé en exécution depuis cet environnement (pas de VPS). `package-lock.json` synchronisé avec `package.json`.
+Code, README et doc API à jour sur la branche `main` de `Deku0019523f/whatsapp-gateway`. Non testé en exécution depuis cet environnement (pas de VPS). `package-lock.json` NON synchronisé avec `package.json` (il manque `better-sqlite3`, `helmet`, `express-rate-limit`) : `npm install` fonctionne et le met à jour, mais `npm ci` échouerait.
 
 ## Prochaines étapes
-1. Sur le VPS : `git pull`, `npm install`, redémarrer PM2 ; vérifier la migration JSON vers SQLite dans les logs
-2. Définir une vraie `ADMIN_KEY` et `ALLOWED_ORIGINS`
-3. Côté My Atelier : vérifier la signature `x-webhook-signature` et dédoublonner avec `x-webhook-id`
-4. Ajouter le champ `engines` dans `package.json`, puis des tests
+1. Sur le VPS : `git pull`, `npm install` (régénère le lock), redémarrer PM2 ; vérifier la migration JSON vers SQLite dans les logs
+2. Commiter le `package-lock.json` régénéré (ou fournir celui du zip au prochain push depuis une machine avec git)
+3. Définir une vraie `ADMIN_KEY` et `ALLOWED_ORIGINS`
+4. Côté My Atelier : vérifier la signature `x-webhook-signature` et dédoublonner avec `x-webhook-id`
+5. Ajouter le champ `engines` dans `package.json`, puis des tests
