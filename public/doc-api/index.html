@@ -209,6 +209,7 @@
     <a href="#admin-regen">Régénérer une clé API</a>
     <a href="#admin-webhook">Modifier le webhook</a>
     <a href="#admin-delete">Supprimer un utilisateur</a>
+    <a href="#admin-webhooks">Suivi des webhooks</a>
 
     <div class="group-label">Session WhatsApp</div>
     <a href="#session-start">Démarrer une session</a>
@@ -243,7 +244,7 @@
       <tr><th>Clé</th><th>Header</th><th>Utilisation</th></tr>
       <tr><td><code>ADMIN_KEY</code></td><td><code>x-admin-key</code></td><td>Créer/gérer les utilisateurs (backend My Atelier uniquement)</td></tr>
       <tr><td><code>apiKey</code> (par utilisateur)</td><td><code>x-api-key</code></td><td>Démarrer une session, envoyer des messages pour cet utilisateur</td></tr>
-      <tr><td><code>webhookKey</code> (par utilisateur)</td><td><code>x-webhook-key</code></td><td>Envoyée par le gateway sur chaque appel webhook, à vérifier côté My Atelier</td></tr>
+      <tr><td><code>webhookKey</code> (par utilisateur)</td><td><code>x-webhook-key</code></td><td>Envoyée par le gateway sur chaque appel webhook (compatibilité). Préférer la signature <code>x-webhook-signature</code>, voir <a href="#webhooks">Événements Webhook</a></td></tr>
     </table>
 
     <h2 id="admin-create"><span class="verb post">POST</span>/admin/users</h2>
@@ -282,6 +283,37 @@
 
     <h2 id="admin-delete"><span class="verb delete">DELETE</span>/admin/users/:userId</h2>
     <p>Supprime l'utilisateur, ferme sa session WhatsApp active si elle existe, et efface ses données (identifiants de session, historique des conversations).</p>
+
+    <h2 id="admin-webhooks"><span class="verb get">GET</span>/admin/webhooks <span class="tag">x-admin-key</span></h2>
+    <p>
+      Liste les livraisons de webhooks (file d'attente) avec des compteurs globaux. Filtres optionnels :
+      <code class="inline-code">status</code> (<code>pending</code>, <code>delivered</code>, <code>failed</code>),
+      <code class="inline-code">userId</code>, <code class="inline-code">limit</code> (max 200).
+    </p>
+    <div class="card">
+      <div class="label">Réponse</div>
+      <pre>{
+  "success": true,
+  "counts": { "pending": 0, "delivered": 124, "failed": 2 },
+  "deliveries": [
+    {
+      "id": "b1c2...",
+      "userId": "5e2f...",
+      "event": "message_received",
+      "status": "failed",
+      "attempts": 8,
+      "maxAttempts": 8,
+      "lastError": "Réponse HTTP 500",
+      "lastHttpStatus": 500,
+      "createdAt": 1753776000000
+    }
+  ]
+}</pre>
+    </div>
+    <p>
+      <span class="verb post">POST</span><code>/admin/webhooks/:id/retry</code> remet une livraison échouée en
+      file d'attente pour un nouvel essai immédiat (<code>404</code> si elle est introuvable ou déjà livrée).
+    </p>
 
     <h2 id="session-start"><span class="verb post">POST</span>/session/start <span class="tag">x-api-key</span></h2>
     <p>Démarre une session WhatsApp pour l'utilisateur, en mode QR ou pairing code.</p>
@@ -363,6 +395,10 @@ media: (fichier binaire)</pre>
   }
 }</pre>
     </div>
+    <div class="note">
+      Pour un message vocal transcrit automatiquement, <code class="inline-code">text</code> contient la
+      transcription, également disponible dans le champ <code class="inline-code">transcription</code>.
+    </div>
 
     <h2 id="message-history-contact"><span class="verb get">GET</span>/message/history/:contact <span class="tag">x-api-key</span></h2>
     <p>Renvoie uniquement les messages reçus d'un contact précis (numéro sans le +).</p>
@@ -403,31 +439,59 @@ media: (fichier binaire)</pre>
 
     <h2 id="webhooks">Événements Webhook</h2>
     <p>
-      Chaque événement est envoyé en <code>POST</code> vers l'URL configurée, avec le header
-      <code class="inline-code">x-webhook-key</code> à vérifier côté My Atelier avant de traiter la requête.
+      Chaque événement est envoyé en <code>POST</code> vers l'URL configurée. Il est d'abord enregistré dans une file
+      d'attente persistante : si votre serveur ne répond pas <code>2xx</code>, le gateway réessaie automatiquement
+      (5 s, 30 s, 2 min, 10 min, 1 h, 6 h — 8 tentatives par défaut). Une erreur <code>4xx</code> (hors 408 et 429)
+      est considérée comme définitive. Les événements <code>qr</code> et <code>pairing_code</code>, périmés en quelques
+      secondes, ne sont tentés qu'une fois.
     </p>
     <div class="card">
       <div class="label">Format</div>
       <pre>{
+  "id": "b1c2...",
   "event": "connected",
   "userId": "5e2f...",
   "data": { },
   "timestamp": 1753776000000
 }</pre>
     </div>
+    <p><strong>Vérifier la signature</strong></p>
+    <p>
+      Chaque requête porte les headers <code class="inline-code">x-webhook-id</code>,
+      <code class="inline-code">x-webhook-event</code>, <code class="inline-code">x-webhook-attempt</code>,
+      <code class="inline-code">x-webhook-timestamp</code> et
+      <code class="inline-code">x-webhook-signature</code> (<code>sha256=&lt;hex&gt;</code>), un HMAC-SHA256 de
+      <code>timestamp + "." + corps brut</code> calculé avec la <code>webhookKey</code> de l'utilisateur.
+      L'ancien header <code class="inline-code">x-webhook-key</code> est toujours envoyé.
+    </p>
+    <pre>const crypto = require("crypto");
+function verifierWebhook(rawBody, headers, webhookKey) {
+  const attendu = "sha256=" + crypto.createHmac("sha256", webhookKey)
+    .update(headers["x-webhook-timestamp"] + "." + rawBody).digest("hex");
+  return crypto.timingSafeEqual(Buffer.from(attendu), Buffer.from(headers["x-webhook-signature"] || ""));
+}</pre>
+    <p>
+      La livraison est « au moins une fois » : en cas de réessai, un même événement peut arriver deux fois, il faut
+      dédoublonner avec <code class="inline-code">x-webhook-id</code>. L'ordre n'est pas garanti après un réessai :
+      triez avec <code>timestamp</code>.
+    </p>
     <ul class="events">
       <li><code>qr</code> — nouveau QR code disponible</li>
       <li><code>pairing_code</code> — code de pairing généré</li>
       <li><code>connected</code> — session WhatsApp connectée</li>
       <li><code>disconnected</code> — session fermée</li>
-      <li><code>message_received</code> — message entrant reçu sur le compte (inclut désormais un champ <code>text</code> extrait automatiquement)</li>
+      <li><code>message_received</code> — message entrant reçu sur le compte (inclut un champ <code>text</code> extrait automatiquement). Pour un message vocal : <code>isVoice</code> et <code>transcription</code> sont ajoutés, et <code>text</code> contient la transcription automatique (Groq Whisper) quand elle est activée sur le serveur ; sinon <code>transcription</code> vaut <code>null</code>.</li>
     </ul>
 
     <h2 id="socket">Socket.io (optionnel, temps réel côté front)</h2>
-    <p>Pour afficher le QR en direct dans l'interface My Atelier sans dépendre du webhook :</p>
-    <pre>const socket = io("http://VOTRE_IP_VPS:3000");
-socket.emit("join", userId);
-socket.on("qr", ({ qr }) => afficherQr(qr));</pre>
+    <p>
+      Pour afficher le QR en direct dans l'interface My Atelier sans dépendre du webhook. La connexion est
+      authentifiée par la clé API de l'utilisateur : le serveur place le socket dans la room de cet utilisateur
+      uniquement, il n'y a plus de <code>join</code> à envoyer.
+    </p>
+    <pre>const socket = io("https://VOTRE_DOMAINE", { auth: { apiKey: "key_..." } });
+socket.on("connect_error", (err) =&gt; console.error(err.message)); // "unauthorized" si clé invalide
+socket.on("qr", ({ qr }) =&gt; afficherQr(qr));</pre>
 
     <h2 id="creator">Créateur</h2>
     <p class="lead">Développeur du gateway et des projets My Atelier / Premium225 / BoostAPI.</p>
